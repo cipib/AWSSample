@@ -20,14 +20,6 @@ jobs:
             "https://token.actions.githubusercontent.com/.well-known/openid-configuration")
           echo "$TOKEN"
 
-      - name: Get OIDC token
-        id: idtoken
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const jwt = await core.getIDToken();
-            console.log(jwt);
-
       - name: Get real OIDC token
         id: real-oidc
         uses: actions/github-script@v6

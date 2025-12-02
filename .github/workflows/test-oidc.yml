@@ -12,14 +12,6 @@ jobs:
       contents: read
 
     steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Test AWS identity
-        run: aws sts get-caller-identity
 
       - name: Print OIDC claims
         run: |
@@ -35,4 +27,14 @@ jobs:
           script: |
             const jwt = await core.getIDToken();
             console.log(jwt);
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Test AWS identity
+        run: aws sts get-caller-identity
+
+
 

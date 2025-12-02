@@ -16,33 +16,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Debug OIDC Token Claims
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const token = await core.getIDToken();
-            const parts = token.split('.');
-            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
-            
-            console.log("=== OIDC Token Claims ===");
-            console.log("Subject (sub):", payload.sub);
-            console.log("Audience (aud):", payload.aud);
-            console.log("Issuer (iss):", payload.iss);
-            console.log("Repository:", payload.repository);
-            console.log("Ref:", payload.ref);
-            console.log("SHA:", payload.sha);
-            console.log("\n=== What AWS Expects ===");
-            console.log("Expected sub pattern: repo:cipib/AWSSample:ref:refs/heads/main");
-            console.log("Expected aud: sts.amazonaws.com");
-            console.log("\n=== Match Status ===");
-            console.log("Sub matches:", payload.sub === "repo:cipib/AWSSample:ref:refs/heads/main");
-            console.log("Aud matches:", payload.aud === "sts.amazonaws.com");
-
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::259099248018:role/YOUR_ROLE_NAME
-          aws-region: us-east-1
+          aws-region: us-west-1
+          audience: sts.amazonaws.com  # ← ADD THIS LINE
           role-session-name: GitHubActions-${{ github.run_id }}
 
       - name: Verify AWS Identity
@@ -50,12 +29,10 @@ jobs:
           echo "=== AWS Caller Identity ==="
           aws sts get-caller-identity
           
-          echo -e "\n=== AWS Account Info ==="
-          echo "Account ID: $(aws sts get-caller-identity --query Account --output text)"
-          echo "Assumed Role ARN: $(aws sts get-caller-identity --query Arn --output text)"
+          echo -e "\n=== Success! ==="
+          echo "Successfully assumed role and connected to AWS"
 
       - name: Test AWS Permissions
         run: |
           echo "=== Testing Basic AWS Access ==="
           aws s3 ls || echo "No S3 access or no buckets"
-          aws ec2 describe-regions --output tabl

@@ -3,62 +3,29 @@ name: Test AWS OIDC
 on:
   workflow_dispatch:
 
+permissions:
+  id-token: write        # THIS MUST BE AT THE TOP LEVEL
+  contents: read
+
 jobs:
   test-oidc:
     runs-on: ubuntu-latest
 
-    permissions:
-      id-token: write      # REQUIRED for OIDC
-      contents: read
-
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. Get the REAL OIDC token
-      - name: Get OIDC Token
-        id: get_token
+      - name: Generate OIDC Token
+        id: oidc
         uses: actions/github-script@v6
         with:
           script: |
             const token = await core.getIDToken();
-            core.setOutput('id_token', token);
+            console.log("OIDC TOKEN START");
+            console.log(token);
+            console.log("OIDC TOKEN END");
+            core.setOutput("token", token);
 
-      # 2. Print the raw OIDC token so we can decode it
-      - name: Print OIDC Token
+      - name: Print token again (raw)
         run: |
-          echo "===================================="
-          echo "🔐 RAW OIDC TOKEN (copy this to jwt.io)"
-          echo "===================================="
-          echo "${{ steps.get_token.outputs.id_token }}"
-          echo "===================================="
-
-      # 3. Decode the JWT using a Node script and print the claims
-      - name: Decode JWT locally to show 'sub'
-        run: |
-          echo "${{ steps.get_token.outputs.id_token }}" > token.txt
-          npm init -y >/dev/null 2>&1
-          npm install jwt-decode >/dev/null 2>&1
-          node - <<EOF
-          const fs = require('fs');
-          const decode = require('jwt-decode');
-          const token = fs.readFileSync('token.txt').toString().trim();
-          const decoded = decode(token);
-          console.log("====================================");
-          console.log("🔍 DECODED JWT CLAIMS");
-          console.log("====================================");
-          console.log(decoded);
-          console.log("====================================");
-          console.log("👉 SUB CLAIM WE NEED:");
-          console.log(decoded.sub);
-          EOF
-
-      # 4. Attempt AWS auth (will fail until trust policy is fixed)
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Test AWS identity (this will fail right now)
-        run: aws sts get-caller-identity
+          echo "TOKEN = ${{ steps.oidc.outputs.token }}"

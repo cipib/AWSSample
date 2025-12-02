@@ -1,31 +1,20 @@
-name: Test AWS OIDC
+name: Official GitHub OIDC Test
 
 on:
   workflow_dispatch:
 
 permissions:
-  id-token: write        # THIS MUST BE AT THE TOP LEVEL
+  id-token: write
   contents: read
 
 jobs:
-  test-oidc:
+  test:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Generate OIDC Token
-        id: oidc
+      - name: Get an OIDC token from GitHub
         uses: actions/github-script@v6
         with:
           script: |
             const token = await core.getIDToken();
-            console.log("OIDC TOKEN START");
+            console.log("OIDC TOKEN:");
             console.log(token);
-            console.log("OIDC TOKEN END");
-            core.setOutput("token", token);
-
-      - name: Print token again (raw)
-        run: |
-          echo "TOKEN = ${{ steps.oidc.outputs.token }}"

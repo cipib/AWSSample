@@ -16,21 +16,60 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Get OIDC Token with correct audience
+        id: oidc
+        uses: actions/github-script@v7
         with:
-          role-to-assume: arn:aws:iam::259099248018:role/YOUR_ROLE_NAME
-          aws-region: us-west-1
-          audience: sts.amazonaws.com  # ← ADD THIS LINE
-          role-session-name: GitHubActions-${{ github.run_id }}
+          script: |
+            const token = await core.getIDToken('sts.amazonaws.com');
+            const parts = token.split('.');
+            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+            
+            console.log("=== Token Info ===");
+            console.log("Subject:", payload.sub);
+            console.log("Audience:", payload.aud);
+            console.log("Issuer:", payload.iss);
+            
+            core.setOutput('token', token);
+            core.setSecret(token);
+
+      - name: Assume Role with Web Identity
+        env:
+          AWS_DEFAULT_REGION: us-east-1
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+          ROLE_ARN: arn:aws:iam::259099248018:role/github-actions-deploy-role
+        run: |
+          echo "Attempting to assume role..."
+          
+          CREDENTIALS=$(aws sts assume-role-with-web-identity \
+            --role-arn "${ROLE_ARN}" \
+            --role-session-name "GitHubActions-${GITHUB_RUN_ID}" \
+            --web-identity-token "${OIDC_TOKEN}" \
+            --duration-seconds 3600 \
+            --query 'Credentials' \
+            --output json)
+          
+          echo "Successfully assumed role!"
+          
+          export AWS_ACCESS_KEY_ID=$(echo $CREDENTIALS | jq -r '.AccessKeyId')
+          export AWS_SECRET_ACCESS_KEY=$(echo $CREDENTIALS | jq -r '.SecretAccessKey')
+          export AWS_SESSION_TOKEN=$(echo $CREDENTIALS | jq -r '.SessionToken')
+          
+          # Save to GITHUB_ENV for subsequent steps
+          echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" >> $GITHUB_ENV
+          echo "AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}" >> $GITHUB_ENV
+          
+          # Mask the credentials
+          echo "::add-mask::${AWS_ACCESS_KEY_ID}"
+          echo "::add-mask::${AWS_SECRET_ACCESS_KEY}"
+          echo "::add-mask::${AWS_SESSION_TOKEN}"
 
       - name: Verify AWS Identity
         run: |
           echo "=== AWS Caller Identity ==="
           aws sts get-caller-identity
-          
-          echo -e "\n=== Success! ==="
-          echo "Successfully assumed role and connected to AWS"
+          echo "=== Success! ==="
 
       - name: Test AWS Permissions
         run: |

@@ -20,3 +20,19 @@ jobs:
 
       - name: Test AWS identity
         run: aws sts get-caller-identity
+
+      - name: Print OIDC claims
+        run: |
+          echo "Fetching OIDC token..."
+          TOKEN=$(curl -sH "Authorization: Bearer $ACTIONS_ID_TOKEN" \
+            "https://token.actions.githubusercontent.com/.well-known/openid-configuration")
+          echo "$TOKEN"
+
+      - name: Get OIDC token
+        id: idtoken
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const jwt = await core.getIDToken();
+            console.log(jwt);
+
